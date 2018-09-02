@@ -66,7 +66,6 @@ final class BoundedBlockingPool<T> extends AbstractPool<T> implements BlockingPo
                 return objects.take();
             } catch (InterruptedException ie) {
                 currentThread().interrupt();
-                log.error("", ie);
             }
             return null;
         }

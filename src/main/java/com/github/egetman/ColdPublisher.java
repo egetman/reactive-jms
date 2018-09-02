@@ -1,9 +1,9 @@
 package com.github.egetman;
 
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,7 +29,7 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
 
     private final Source<T> source;
     private final AtomicInteger demandKey = new AtomicInteger();
-    private final Collection<Demand> demands = new CopyOnWriteArraySet<>();
+    private final Map<Integer, Demand> demands = new ConcurrentHashMap<>();
 
     private final int poolSize = Runtime.getRuntime().availableProcessors();
     private final ThreadFactory threadFactory = new CustomizableThreadFactory("cp-worker", true);
@@ -44,8 +44,9 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         Objects.requireNonNull(subscriber, "Subscriber must not be null");
         try {
             final Demand demand = new Demand(subscriber, demandKey.getAndIncrement());
+            subscriber.onSubscribe(demand);
             log.debug("{}: subscribed with {}", demand, subscriber);
-            demands.add(demand);
+            demands.put(demand.key, demand);
             log.debug("Total subscriptions count: {}", demands.size());
             executor.execute(() -> sendNext(demand));
         } catch (Exception e) {
@@ -96,7 +97,7 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
      * @param demand is current {@link Demand} to check.
      */
     private void checkNoMoreElements(Demand demand) {
-        if (!source.iterator(demand.key).hasNext()) {
+        if (demand.canceled.get() || !source.iterator(demand.key).hasNext()) {
             log.debug("{}: no more source to publish", demand);
             demand.onComplete();
         }
@@ -106,7 +107,7 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
     public void close() {
         if (!executor.isShutdown()) {
             log.debug("shutting down {}", this);
-            demands.forEach(Demand::cancel);
+            demands.values().forEach(Demand::cancel);
             executor.shutdownNow();
         }
     }
@@ -127,7 +128,6 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
             this.key = key;
             log.debug("{}: initialization started", this);
             this.subscriber = Objects.requireNonNull(subscriber, "Subscriber must not be null");
-            this.subscriber.onSubscribe(this);
             log.debug("{}: initialization finished", this);
             initialized.set(true);
         }
@@ -154,19 +154,19 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         }
 
         @Override
-        public void request(long n) {
+        public void request(long addition) {
             if (canceled.get()) {
                 return;
             }
-            log.debug("{}: requested {} element(s)", this, n);
-            if (n <= 0) {
+            log.debug("{}: requested {} element(s)", this, addition);
+            if (addition <= 0) {
                 subscriber.onError(new IllegalArgumentException("Specification rule [3.9] violation"));
                 return;
             }
             while (true) {
                 long count = this.requested.get();
-                if (this.requested.compareAndSet(count, count + n)) {
-                    log.debug("{}: additional request(s) [{}] added to requests pool", this, n);
+                if (this.requested.compareAndSet(count, count + addition)) {
+                    log.debug("{}: additional request(s) [{}] added to requests pool", this, addition);
                     break;
                 }
             }
@@ -187,7 +187,7 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
          */
         private void clear() {
             subscriber = null;
-            demands.remove(this);
+            demands.remove(key);
             try {
                 // we should try to close underlying source, but it's prohibited by the spec to throw any exceptions
                 // from cancel and etc.
