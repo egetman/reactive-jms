@@ -62,26 +62,19 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         }
 
         try {
-            // wait until Subscriber#onSubscribe called
-            // noinspection StatementWithEmptyBody
-            while (!demand.initialized.get()) {
-                // we need to wait in case of sync call Subscription#request from Subscriber#onSubscribe
-                // until Subscriber complete it's subscription registration.
-            }
-
             // we could add new requested elements from different threads, but process from one
             if (demand.processing.compareAndSet(false, true)) {
                 log.debug("{}: processing Next for total pool of: {} requests(s)", demand, demand.requested.get());
                 final Iterator<T> iterator = source.iterator(demand.key);
 
-                checkNoMoreElements(demand);
+                completeIfNoMoreElements(demand);
                 while (!demand.canceled.get() && demand.requested.get() > 0 && iterator.hasNext()) {
                     final T element = Objects.requireNonNull(iterator.next());
                     log.debug("Publishing next element with type {}", element.getClass().getSimpleName());
                     demand.onNext(element);
                     demand.requested.decrementAndGet();
                 }
-                checkNoMoreElements(demand);
+                completeIfNoMoreElements(demand);
                 demand.processing.set(false);
                 log.debug("{}: processing Next completed by {}", demand, Thread.currentThread().getName());
             }
@@ -96,7 +89,7 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
      *
      * @param demand is current {@link Demand} to check.
      */
-    private void checkNoMoreElements(Demand demand) {
+    private void completeIfNoMoreElements(Demand demand) {
         if (demand.canceled.get() || !source.iterator(demand.key).hasNext()) {
             log.debug("{}: no more source to publish", demand);
             demand.onComplete();
@@ -117,7 +110,6 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
 
         private final AtomicBoolean canceled = new AtomicBoolean();
         private final AtomicBoolean processing = new AtomicBoolean();
-        private final AtomicBoolean initialized = new AtomicBoolean();
 
         private final AtomicLong requested = new AtomicLong();
         @Getter
@@ -129,7 +121,6 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
             log.debug("{}: initialization started", this);
             this.subscriber = Objects.requireNonNull(subscriber, "Subscriber must not be null");
             log.debug("{}: initialization finished", this);
-            initialized.set(true);
         }
 
         private void onNext(@Nonnull T next) {
