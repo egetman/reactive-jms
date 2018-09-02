@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss} [%thread] %highlight(%-5level) %logger{10} - %msg%n
+            </Pattern>
+            <outputPatternAsHeader>true</outputPatternAsHeader>
+        </encoder>
+    </appender>
+
+    <logger name="com.github.egetman" level="all" additivity="false">
+        <appender-ref ref="stdout"/>
+    </logger>
+
+    <root level="info">
+        <appender-ref ref="stdout"/>
+    </root>
+</configuration>
