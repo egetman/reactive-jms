@@ -35,7 +35,8 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
     private final ThreadFactory threadFactory = new CustomizableThreadFactory("cp-worker", true);
     private final ExecutorService executor = newScheduledThreadPool(poolSize, threadFactory);
 
-    ColdPublisher(@Nonnull Source<T> source) {
+    @SuppressWarnings("WeakerAccess")
+    public ColdPublisher(@Nonnull Source<T> source) {
         this.source = Objects.requireNonNull(source, "Source must not be null");
     }
 
