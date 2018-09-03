@@ -23,4 +23,74 @@ If you want to make some manual/dynamic throughput control, you can check the us
 
 ## How to use
 
-#### initialization tips:
+Creation of Jms Publisher as simple as
+
+```java
+final ConnectionFactory factory = ...
+final Function<Message, String> messageToString = message -> {
+    try {
+        return ((TextMessage) message).getText();
+    } catch (Exception e) {
+        throw new IllegalStateException(e);
+    }
+};
+Publsiher<String> jmsPublisher = new ColdPublisher<>(new UnicastJmsQueueSource<>(factory, messageToString, "MY_COOL_QUEUE"));
+```
+
+Publisher acceps `Source<T>` instance as data & access provider.
+```java
+public ColdPublisher(@Nonnull Source<T> source) {
+    this.source = Objects.requireNonNull(source, "Source must not be null");
+}
+```
+You can implement your own source types, it's quite easy:
+```java
+public interface Source<E> {
+    CloseableIterator<E> iterator(int key);
+}
+```
+Jms source has 2 constructors, tha accepts following params:
+```java
+public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Function<Message, T> function,
+                             @Nonnull String queue) {
+    ...
+}
+    
+public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Function<Message, T> function,
+                             @Nonnull String queue, String user, String password, boolean transacted) {
+    ...
+}
+```
+
+You can use whatever `Subscriber<T>` you want with `ColdPublisher<T>`. 
+There is one build in: `BalancingSubscriber<T>`.
+
+The main idea is you never asks the given `Subscription` for unbounded sequence of element (usialy through `Long
+.MAX_VALUE`). Instead you say how much elements you want to process for concrete time interval. In case when the 
+application throughput rises too high, you can obtain additional control through `Barrier`.
+
+ The simpliest way to create subscriber:
+```java
+Subscriber<T> subscriber = new BalancingSubscriber<T>(System.out::println);
+```
+Additionaly, **BalancingSubscriber** has several overloaded constructors:
+```java
+public BalancingSubscriber(@Nonnull Consumer<T> onNext) {
+    ...
+}
+
+public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nonnull Barrier barrier) {
+    ...
+}
+
+public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nonnull Barrier barrier, int batchSize, int pollInterval) {
+    ...
+}
+
+public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nullable Consumer<Throwable> onError,
+                           @Nullable Runnable onComplete, @Nonnull Barrier barrier, int batchSize, int pollInterval) {
+    ...
+}
+```
+
+#### Feel free to clone & pr =)
