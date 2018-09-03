@@ -1,3 +1,6 @@
+![hex.pm](https://img.shields.io/hexpm/l/plug.svg)
+![Version](https://img.shields.io/badge/version-0.7-blue.svg)
+[![build status](https://travis-ci.org/egetman/reactive-jms.svg?branch=master)](https://travis-ci.org/egetman/reactive-jms)
 # Reactive JMS Publisher (wrapper)
 
 Reactive JMS publisher is a simple reactive wrapper for JMS API. 
