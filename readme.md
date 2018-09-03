@@ -1,15 +1,15 @@
 # Reactive JMS Publisher (wrapper)
 
-Reactive jms publisher is a simple reactive wrapper of jms api. 
+Reactive jms publisher is a simple reactive wrapper for jms api. 
 
-In terms of reactive streams it is a **Cold** Publsiher. i.e. no data will be loss (via unhandled emitting). Emitting
- begins right after the clien demand's some data.
+In terms of reactive streams it is a **Cold** Publsiher. i.e. no data will be lost (via unhandled emitting). Emitting
+ begins right after the client demand's some data.
  
 Jms publisher, or rather its [Source](/src/main/java/com/github/egetman/source/UnicastJmsQueueSource.java) is unicast
  by it's nature. If multiple clients connects to the same **jms queue**, each one will receive uniq messages. (The 
  same logic as with common interaction with jms queue through jms api).
 
-It's tested with [reactive-streams-jvm](https://github.com/reactive-streams/reactive-streams-jvm),
+It's tested with [reactive-streams-jvm](https://github.com/reactive-streams/reactive-streams-jvm) tck,
 and verified with **amq** & **wmq** brokers.
 
 
@@ -65,11 +65,11 @@ public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Functi
 You can use whatever `Subscriber<T>` you want with `ColdPublisher<T>`. 
 There is one build in: `BalancingSubscriber<T>`.
 
-The main idea is you never asks the given `Subscription` for unbounded sequence of element (usialy through `Long
+The main idea is you never asks the given `Subscription` for unbounded sequence of element (usually through `Long
 .MAX_VALUE`). Instead you say how much elements you want to process for concrete time interval. In case when the 
 application throughput rises too high, you can obtain additional control through `Barrier`.
 
- The simpliest way to create subscriber:
+ The simpliest way to create a subscriber:
 ```java
 Subscriber<T> subscriber = new BalancingSubscriber<T>(System.out::println);
 ```
@@ -93,4 +93,4 @@ public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nullable Consumer<Throw
 }
 ```
 
-#### Feel free to clone & pr =)
+**Please feel free to send a pr =)**
