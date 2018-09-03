@@ -1,13 +1,12 @@
 # Reactive JMS Publisher (wrapper)
 
-Reactive jms publisher is a simple reactive wrapper for jms api. 
+Reactive JMS publisher is a simple reactive wrapper for JMS API. 
 
-In terms of reactive streams it is a **Cold** Publsiher. i.e. no data will be lost (via unhandled emitting). Emitting
+In terms of reactive streams, it is a **Cold** Publisher. i.e. no data will be lost (via unhandled emitting). Emitting
  begins right after the client demand's some data.
  
-Jms publisher, or rather its [Source](/src/main/java/com/github/egetman/source/UnicastJmsQueueSource.java) is unicast
- by it's nature. If multiple clients connects to the same **jms queue**, each one will receive uniq messages. (The 
- same logic as with common interaction with jms queue through jms api).
+JMS publisher or rather its [Source](/src/main/java/com/github/egetman/source/UnicastJmsQueueSource.java) is unicast by its nature. If multiple clients connect to the same **JMS queue**, each one will receive unique messages. (The 
+ same logic as with common interaction with JMS queue through JMS API).
 
 It's tested with [reactive-streams-jvm](https://github.com/reactive-streams/reactive-streams-jvm) tck,
 and verified with **amq** & **wmq** brokers.
@@ -16,14 +15,14 @@ and verified with **amq** & **wmq** brokers.
 ## When to use
 
 If you have some components in your app, that use [reactive](https://github.com/reactive-streams/reactive-streams-jvm/tree/master/api/src/main/java/org/reactivestreams)
-interfaces, it's good choice to use one more for easy integration =)  
+interfaces, it's a good choice to use one more for easy integration =)  
 
-If you want to make some manual/dynamic throughput control, you can check the usecases of 
+If you want to make some manual/dynamic throughput control, you can check the use cases of 
 [Barrier](/src/main/java/com/github/egetman/barrier/Barrier.java) abstraction.
 
 ## How to use
 
-Creation of Jms Publisher as simple as
+Creation of JMS Publisher as simple as
 
 ```java
 final ConnectionFactory factory = ...
@@ -65,15 +64,14 @@ public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Functi
 You can use whatever `Subscriber<T>` you want with `ColdPublisher<T>`. 
 There is one build in: `BalancingSubscriber<T>`.
 
-The main idea is you never asks the given `Subscription` for unbounded sequence of element (usually through `Long
-.MAX_VALUE`). Instead you say how much elements you want to process for concrete time interval. In case when the 
-application throughput rises too high, you can obtain additional control through `Barrier`.
+The main idea is you never ask the given `Subscription` for an unbounded sequence of elements (usually through `Long.MAX_VALUE`). 
+Instead, you say how much elements you want to process for a concrete time interval. In a case when the application throughput rises too high, you can obtain additional control through `Barrier`.
 
- The simpliest way to create a subscriber:
+ The simplest way to create a subscriber:
 ```java
 Subscriber<T> subscriber = new BalancingSubscriber<T>(System.out::println);
 ```
-Additionaly, **BalancingSubscriber** has several overloaded constructors:
+Additionally, **BalancingSubscriber** has several overloaded constructors:
 ```java
 public BalancingSubscriber(@Nonnull Consumer<T> onNext) {
     ...
