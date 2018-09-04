@@ -51,7 +51,7 @@ public interface Source<E> {
     CloseableIterator<E> iterator(int key);
 }
 ```
-Jms source has 2 constructors, tha accepts following params:
+Jms source has 2 constructors, that accepts following params:
 ```java
 public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Function<Message, T> function,
                              @Nonnull String queue) {
