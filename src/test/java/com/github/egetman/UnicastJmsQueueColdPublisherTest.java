@@ -49,7 +49,7 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
     }
 
     public UnicastJmsQueueColdPublisherTest() {
-        super(new TestEnvironment(true));
+        super(new TestEnvironment(200, 200, true));
         // set prefetch to 1, so every consumer can receive some messages.
         factory = new ActiveMQConnectionFactory(BROKER_URL);
         factory.getPrefetchPolicy().setAll(1);
