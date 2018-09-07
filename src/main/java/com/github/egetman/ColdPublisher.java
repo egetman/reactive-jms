@@ -19,13 +19,12 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Slf4j
-class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
+public class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
 
     private final Source<T> source;
     private final AtomicInteger demandKey = new AtomicInteger();
@@ -35,11 +34,13 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
     private final ThreadFactory threadFactory = new CustomizableThreadFactory("cp-worker", true);
     private final ExecutorService executor = newScheduledThreadPool(poolSize, threadFactory);
 
-    @SuppressWarnings("WeakerAccess")
     public ColdPublisher(@Nonnull Source<T> source) {
         this.source = Objects.requireNonNull(source, "Source must not be null");
     }
 
+    /**
+     * {@inheritDoc}.
+     */
     @Override
     public void subscribe(@Nonnull Subscriber<? super T> subscriber) {
         Objects.requireNonNull(subscriber, "Subscriber must not be null");
@@ -56,27 +57,26 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         }
     }
 
-    private void sendNext(Demand demand) {
+    private void sendNext(@Nonnull Demand demand) {
         // if cancel was requested, skip execution.
-        if (demand.canceled.get()) {
+        if (demand.isCancelled()) {
             return;
         }
 
         try {
             // we could add new requested elements from different threads, but process from one
-            if (demand.processing.compareAndSet(false, true)) {
-                log.debug("{}: processing Next for total pool of: {} requests(s)", demand, demand.requested.get());
+            if (demand.tryLock()) {
+                log.debug("{}: processing Next for total pool of: {} requests(s)", demand, demand.size());
                 final Iterator<T> iterator = source.iterator(demand.key);
 
                 completeIfNoMoreElements(demand);
-                while (!demand.canceled.get() && demand.requested.get() > 0 && iterator.hasNext()) {
+                while (!demand.isCancelled() && demand.size() > 0 && iterator.hasNext()) {
                     final T element = Objects.requireNonNull(iterator.next());
                     log.debug("Publishing next element with type {}", element.getClass().getSimpleName());
                     demand.onNext(element);
-                    demand.requested.decrementAndGet();
                 }
                 completeIfNoMoreElements(demand);
-                demand.processing.set(false);
+                demand.release();
                 log.debug("{}: processing Next completed by {}", demand, Thread.currentThread().getName());
             }
         } catch (Exception e) {
@@ -90,13 +90,16 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
      *
      * @param demand is current {@link Demand} to check.
      */
-    private void completeIfNoMoreElements(Demand demand) {
-        if (demand.canceled.get() || !source.iterator(demand.key).hasNext()) {
+    private void completeIfNoMoreElements(@Nonnull Demand demand) {
+        if (demand.isCancelled() || !source.iterator(demand.key).hasNext()) {
             log.debug("{}: no more source to publish", demand);
             demand.onComplete();
         }
     }
 
+    /**
+     * {@inheritDoc}.
+     */
     @Override
     public void close() {
         if (!executor.isShutdown()) {
@@ -112,10 +115,9 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         private final AtomicBoolean canceled = new AtomicBoolean();
         private final AtomicBoolean processing = new AtomicBoolean();
 
-        private final AtomicLong requested = new AtomicLong();
-        @Getter
         private final int key;
         private Subscriber<? super T> subscriber;
+        private final AtomicLong requested = new AtomicLong();
 
         private Demand(@Nonnull Subscriber<? super T> subscriber, int key) {
             this.key = key;
@@ -127,6 +129,7 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         private void onNext(@Nonnull T next) {
             log.debug("{}: received onNext {} signal", this, next.getClass().getSimpleName());
             subscriber.onNext(next);
+            requested.decrementAndGet();
         }
 
         private void onError(@Nonnull Throwable error) {
@@ -145,6 +148,9 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
             }
         }
 
+        /**
+         * {@inheritDoc}.
+         */
         @Override
         public void request(long addition) {
             if (canceled.get()) {
@@ -165,6 +171,9 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
             executor.execute(() -> sendNext(this));
         }
 
+        /**
+         * {@inheritDoc}.
+         */
         @Override
         public void cancel() {
             // no need to close resources each time cancel called
@@ -175,6 +184,39 @@ class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         }
 
         /**
+         * Indicates if {@link Demand} is cancelled.
+         *
+         * @return true if demand is cancelled, false otherwise.
+         */
+        private boolean isCancelled() {
+            return canceled.get();
+        }
+
+        /**
+         * Try to get exclusive {@literal processing} lock for given {@link Demand}.
+         *
+         * @return true, if the acquisition was successful, false otherwise.
+         */
+        private boolean tryLock() {
+            return processing.compareAndSet(false, true);
+        }
+
+        /**
+         * Reseases exclusive {@literal processing} lock for given {@link Demand}.
+         */
+        private void release() {
+            processing.set(false);
+        }
+
+        /**
+         * @return count of demanded elements.
+         */
+        private long size() {
+            return requested.get();
+        }
+
+        /**
+         * Clean up all internal {@link Demand} resources and drop reference to it's {@link Subscriber}.
          * Usage of this method should be synchronized, cause there is no guarantee of it's idempotency.
          */
         private void clear() {

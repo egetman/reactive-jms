@@ -1,7 +1,7 @@
 package com.github.egetman;
 
 import java.util.function.Function;
-import java.util.stream.LongStream;
+import java.util.stream.IntStream;
 import javax.jms.Connection;
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -20,11 +20,16 @@ import org.testng.annotations.AfterMethod;
 
 import lombok.extern.slf4j.Slf4j;
 
+import static java.lang.String.*;
+
 /**
  * TCK {@link Publisher} verification.
  */
 @Slf4j
 public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<String> {
+
+    private static final int MESSAGES_IN_QUEUE_SIZE = 10;
+    private static final int DEFAULT_TIMEOUT_MILLIS = 200;
 
     private static final String QUEUE_NAME = "queue";
     private static final String BROKER_URL = "vm://localhost?broker.persistent=false";
@@ -49,7 +54,7 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
     }
 
     public UnicastJmsQueueColdPublisherTest() {
-        super(new TestEnvironment(200, 200, true));
+        super(new TestEnvironment(DEFAULT_TIMEOUT_MILLIS, DEFAULT_TIMEOUT_MILLIS, true));
         // set prefetch to 1, so every consumer can receive some messages.
         factory = new ActiveMQConnectionFactory(BROKER_URL);
         factory.getPrefetchPolicy().setAll(1);
@@ -64,9 +69,9 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
                 final Queue queue = session.createQueue(QUEUE_NAME);
                 try (final MessageProducer producer = session.createProducer(queue)) {
                     // add 10 messages into queue for each test
-                    LongStream.range(0, 10).forEach(element -> {
+                    IntStream.range(0, MESSAGES_IN_QUEUE_SIZE).forEach(element -> {
                         try {
-                            producer.send(session.createTextMessage(String.valueOf(element)));
+                            producer.send(session.createTextMessage(valueOf(element)));
                         } catch (JMSException e) {
                             log.error("Failed to send {} element into {}", element, QUEUE_NAME);
                         }
