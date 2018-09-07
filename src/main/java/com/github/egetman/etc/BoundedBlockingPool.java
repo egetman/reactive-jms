@@ -10,6 +10,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,6 +47,7 @@ final class BoundedBlockingPool<T> extends AbstractPool<T> implements BlockingPo
         IntStream.range(0, size).forEach(ignored -> objects.add(factory.get()));
     }
 
+    @Nullable
     @Override
     public T get(long timeOut, TimeUnit unit) {
         if (!shutdownCalled) {
@@ -59,6 +61,7 @@ final class BoundedBlockingPool<T> extends AbstractPool<T> implements BlockingPo
         throw new IllegalStateException(SHUTDOWN_CAUSE);
     }
 
+    @Nonnull
     @Override
     public T get() {
         if (!shutdownCalled) {
@@ -67,7 +70,8 @@ final class BoundedBlockingPool<T> extends AbstractPool<T> implements BlockingPo
             } catch (InterruptedException ie) {
                 currentThread().interrupt();
             }
-            return null;
+            // unbounded?
+            return get();
         }
         throw new IllegalStateException(SHUTDOWN_CAUSE);
     }
@@ -101,7 +105,7 @@ final class BoundedBlockingPool<T> extends AbstractPool<T> implements BlockingPo
         execute(() -> put(factory.get()));
     }
 
-    private void execute(Runnable runnable) {
+    private void execute(@Nonnull Runnable runnable) {
         if (executor.isShutdown() || executor.isTerminated()) {
             log.warn("Can't execute task: executor is shutdown");
         } else {
@@ -114,7 +118,7 @@ final class BoundedBlockingPool<T> extends AbstractPool<T> implements BlockingPo
         return validator.test(object);
     }
 
-    private void put(T object) {
+    private void put(@Nonnull T object) {
         while (true) {
             try {
                 objects.put(object);

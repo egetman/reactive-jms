@@ -1,5 +1,7 @@
 package com.github.egetman.etc;
 
+import javax.annotation.Nonnull;
+
 /**
  * Represents a cached pool of objects.
  *
@@ -35,6 +37,7 @@ public interface Pool<T> {
      *
      * @return T one of the pooled objects.
      */
+    @Nonnull
     T get();
 
     /**

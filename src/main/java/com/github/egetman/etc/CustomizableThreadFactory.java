@@ -25,7 +25,6 @@ public class CustomizableThreadFactory implements ThreadFactory {
         this(threadName, false);
     }
 
-    @SuppressWarnings("WeakerAccess")
     public CustomizableThreadFactory(String threadName, boolean isDaemon) {
         this.threadName = threadName;
         this.isDaemon = isDaemon;
@@ -44,7 +43,7 @@ public class CustomizableThreadFactory implements ThreadFactory {
     private static class TracePrinter implements Thread.UncaughtExceptionHandler {
 
         @Override
-        public void uncaughtException(Thread thread, Throwable ex) {
+        public void uncaughtException(@Nonnull Thread thread, @Nonnull Throwable ex) {
             log.error("Uncaught exception for {}:", thread.getName(), ex);
         }
     }

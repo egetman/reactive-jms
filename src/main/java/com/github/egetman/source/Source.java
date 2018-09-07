@@ -1,6 +1,7 @@
 package com.github.egetman.source;
 
 import java.util.Iterator;
+import javax.annotation.Nonnull;
 
 /**
  * Abstraction of elements source, that could give an {@link Iterator} for that source.
@@ -18,6 +19,7 @@ public interface Source<E> {
      * @param key uniq key to obtain iterator instance.
      * @return {@link CloseableIterator}.
      */
+    @Nonnull
     CloseableIterator<E> iterator(int key);
 
 }

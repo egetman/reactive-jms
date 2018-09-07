@@ -1,6 +1,7 @@
 package com.github.egetman.etc;
 
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nonnull;
 
 /**
  * Represents a pool of objects that makes the
@@ -31,6 +32,7 @@ public interface BlockingPool<T> extends Pool<T> {
      *
      * @return T an instance of the Object of type T from the pool.
      */
+    @Nonnull
     T get();
 
     /**

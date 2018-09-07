@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Factory and utility methods for
@@ -40,8 +42,9 @@ public interface PoolFactory {
      * @param <T>       type of elements in the pool.
      * @return a blocking object pool bounded by <tt> size </tt>
      */
-    static <T> Pool<T> newBoundedBlockingPool(int size, Supplier<T> factory, Predicate<T> validator,
-                                              Consumer<T> cleaner) {
+    @Nonnull
+    static <T> Pool<T> newBoundedBlockingPool(int size, @Nonnull Supplier<T> factory, @Nonnull Predicate<T> validator,
+                                              @Nullable Consumer<T> cleaner) {
         return new BoundedBlockingPool<>(size, validator, factory, cleaner);
     }
 
@@ -56,7 +59,8 @@ public interface PoolFactory {
      * @param <T>       type of elements in the pool.
      * @return a blocking object pool bounded by <tt> size </tt>
      */
-    static <T> Pool<T> newBoundedBlockingPool(int size, Supplier<T> factory) {
+    @Nonnull
+    static <T> Pool<T> newBoundedBlockingPool(int size, @Nonnull Supplier<T> factory) {
         return new BoundedBlockingPool<>(size, Objects::nonNull, factory, null);
     }
 
