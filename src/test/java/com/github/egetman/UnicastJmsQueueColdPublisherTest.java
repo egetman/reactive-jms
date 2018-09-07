@@ -29,7 +29,7 @@ import static java.lang.String.*;
 public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<String> {
 
     private static final int MESSAGES_IN_QUEUE_SIZE = 10;
-    private static final int DEFAULT_TIMEOUT_MILLIS = 200;
+    private static final int DEFAULT_TIMEOUT_MILLIS = 300;
 
     private static final String QUEUE_NAME = "queue";
     private static final String BROKER_URL = "vm://localhost?broker.persistent=false";

@@ -1,5 +1,7 @@
 package com.github.egetman;
 
+import com.github.egetman.barrier.OpenBarrier;
+
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.reactivestreams.tck.SubscriberWhiteboxVerification;
@@ -14,15 +16,19 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BalancingSubscriberWhiteBoxTest extends SubscriberWhiteboxVerification<Integer> {
 
-    private BalancingSubscriber<Integer> balancingSubscriber;
+    private static final int BATCH_SIZE = 100;
+    private static final int POLL_INTERVAL = 1;
+    private static final int DEFAULT_TIMEOUT_MILLIS = 300;
+
+    private BalancingSubscriber<Integer> subscriber;
 
     public BalancingSubscriberWhiteBoxTest() {
-        super(new TestEnvironment(true));
+        super(new TestEnvironment(DEFAULT_TIMEOUT_MILLIS, DEFAULT_TIMEOUT_MILLIS, true));
     }
 
     @Override
     public Subscriber<Integer> createSubscriber(WhiteboxSubscriberProbe<Integer> probe) {
-        balancingSubscriber = new BalancingSubscriber<Integer>(i -> log.info("{}", i)) {
+        subscriber = new BalancingSubscriber<Integer>(i -> log.info("{}", i), new OpenBarrier(), BATCH_SIZE, POLL_INTERVAL) {
 
             @Override
             public void onSubscribe(Subscription subscription) {
@@ -59,7 +65,7 @@ public class BalancingSubscriberWhiteBoxTest extends SubscriberWhiteboxVerificat
                 probe.registerOnComplete();
             }
         };
-        return balancingSubscriber;
+        return subscriber;
     }
 
     @Override
@@ -69,9 +75,9 @@ public class BalancingSubscriberWhiteBoxTest extends SubscriberWhiteboxVerificat
 
     @AfterMethod
     private void shutdown() {
-        if (balancingSubscriber != null) {
-            log.debug("Closing {}", balancingSubscriber);
-            balancingSubscriber.close();
+        if (subscriber != null) {
+            log.debug("Closing {}", subscriber);
+            subscriber.close();
         }
     }
 
