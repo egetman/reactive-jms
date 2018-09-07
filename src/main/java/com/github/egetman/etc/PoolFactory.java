@@ -37,6 +37,7 @@ public interface PoolFactory {
      * @param validator the validator to
      *                  validate the re-usability of returned objects.
      * @param cleaner   the cleaner to clean up the resources. (optional - may be null)
+     * @param <T>       type of elements in the pool.
      * @return a blocking object pool bounded by <tt> size </tt>
      */
     static <T> Pool<T> newBoundedBlockingPool(int size, Supplier<T> factory, Predicate<T> validator,
@@ -52,6 +53,7 @@ public interface PoolFactory {
      *
      * @param size    the number of objects in the pool.
      * @param factory the factory to create new objects.
+     * @param <T>       type of elements in the pool.
      * @return a blocking object pool bounded by <tt> size </tt>
      */
     static <T> Pool<T> newBoundedBlockingPool(int size, Supplier<T> factory) {
