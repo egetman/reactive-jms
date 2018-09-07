@@ -64,20 +64,22 @@ public class ColdPublisher<T> implements Publisher<T>, AutoCloseable {
         }
 
         try {
-            // we could add new requested elements from different threads, but process from one
-            if (demand.tryLock()) {
-                log.debug("{}: processing Next for total pool of: {} requests(s)", demand, demand.size());
-                final Iterator<T> iterator = source.iterator(demand.key);
+            while (true) {
+                // we could add new requested elements from different threads, but process from one
+                if (demand.tryLock()) {
+                    log.debug("{}: processing Next for total pool of: {} requests(s)", demand, demand.size());
+                    final Iterator<T> iterator = source.iterator(demand.key);
 
-                completeIfNoMoreElements(demand);
-                while (!demand.isCancelled() && demand.size() > 0 && iterator.hasNext()) {
-                    final T element = Objects.requireNonNull(iterator.next());
-                    log.debug("Publishing next element with type {}", element.getClass().getSimpleName());
-                    demand.onNext(element);
+                    while (!demand.isCancelled() && demand.size() > 0 && iterator.hasNext()) {
+                        final T element = Objects.requireNonNull(iterator.next());
+                        log.debug("Publishing next element with type {}", element.getClass().getSimpleName());
+                        demand.onNext(element);
+                    }
+                    completeIfNoMoreElements(demand);
+                    demand.release();
+                    log.debug("{}: processing Next completed by {}", demand, Thread.currentThread().getName());
+                    break;
                 }
-                completeIfNoMoreElements(demand);
-                demand.release();
-                log.debug("{}: processing Next completed by {}", demand, Thread.currentThread().getName());
             }
         } catch (Exception e) {
             log.error("{}: exception occurred during sending onNext:", demand, e);
