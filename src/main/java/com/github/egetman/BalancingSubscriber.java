@@ -22,6 +22,21 @@ import lombok.extern.slf4j.Slf4j;
 
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
+/**
+ * {@link BalancingSubscriber} is {@link Subscriber} implementation with dynamic throughput.
+ * The main idea of {@link BalancingSubscriber} is you never ask the given {@literal Subscription} for an unbounded
+ * sequence of elements (usually through {@literal Long.MAX_VALUE}).
+ * Instead, you say how much elements you want to process for a concrete time interval. {@link BalancingSubscriber}
+ * will demand {@literal NOT MORE} elements from it's subscription for that time.
+ * In a case when the application throughput rises too high, you can obtain additional control through {@link Barrier}.
+ *
+ * <p>The simplest way to create a subscriber:
+ * {@code
+ * Subscriber<T> subscriber = new BalancingSubscriber<T>(System.out::println);
+ * }
+ *
+ * @param <T> type of elements, that {@link BalancingSubscriber} handle.
+ */
 @Slf4j
 public class BalancingSubscriber<T> implements Subscriber<T>, AutoCloseable {
 
@@ -32,8 +47,8 @@ public class BalancingSubscriber<T> implements Subscriber<T>, AutoCloseable {
     private final int pollInterval;
     private final Barrier barrier;
     private final Consumer<T> onNext;
-    private final Consumer<Throwable> onError;
     private final Runnable onComplete;
+    private final Consumer<Throwable> onError;
 
     private Subscription subscription;
     private final AtomicLong consumed = new AtomicLong();
@@ -41,22 +56,18 @@ public class BalancingSubscriber<T> implements Subscriber<T>, AutoCloseable {
     private final ThreadFactory threadFactory = new CustomizableThreadFactory("bs-worker", true);
     private final ScheduledExecutorService executor = newScheduledThreadPool(1, threadFactory);
 
-    @SuppressWarnings({"unused", "WeakerAccess"})
     public BalancingSubscriber(@Nonnull Consumer<T> onNext) {
         this(onNext, null, null, new OpenBarrier(), BATCH_SIZE, POLL_INTERVAL);
     }
 
-    @SuppressWarnings("unused")
     public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nonnull Barrier barrier) {
         this(onNext, null, null, barrier, BATCH_SIZE, POLL_INTERVAL);
     }
 
-    @SuppressWarnings("unused")
     public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nonnull Barrier barrier, int batchSize, int pollInterval) {
         this(onNext, null, null, barrier, batchSize, pollInterval);
     }
 
-    @SuppressWarnings("WeakerAccess")
     public BalancingSubscriber(@Nonnull Consumer<T> onNext, @Nullable Consumer<Throwable> onError,
                                @Nullable Runnable onComplete, @Nonnull Barrier barrier, int batchSize,
                                int pollInterval) {
@@ -96,9 +107,6 @@ public class BalancingSubscriber<T> implements Subscriber<T>, AutoCloseable {
 
         onNext.accept(next);
         consumed.incrementAndGet();
-        if (consumed.compareAndSet(batchSize, 0) && barrier.isOpen() && !completed.get()) {
-            subscription.request(batchSize);
-        }
     }
 
     @Override
@@ -125,8 +133,8 @@ public class BalancingSubscriber<T> implements Subscriber<T>, AutoCloseable {
     }
 
     private void tryToRequest() {
-        if (consumed.compareAndSet(0, 0) && barrier.isOpen() && !completed.get()) {
-            log.debug("{}: additional {} elements request", this, batchSize);
+        if (consumed.compareAndSet(batchSize, 0) && barrier.isOpen() && !completed.get()) {
+            log.debug("{}: additional {} elements requested", this, batchSize);
             subscription.request(batchSize);
         }
     }
