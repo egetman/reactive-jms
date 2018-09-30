@@ -7,10 +7,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.jms.Connection;
+import javax.jms.IllegalStateException;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.Session;
+import javax.jms.TransactionInProgressException;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ class JmsUnit implements AutoCloseable {
     // one session and consumer per connection
     private Session session;
     private MessageConsumer consumer;
+    private final boolean transacted;
     private final Connection connection;
 
     private final Supplier<Session> sessionSupplier;
@@ -32,13 +35,14 @@ class JmsUnit implements AutoCloseable {
 
     JmsUnit(@Nonnull Connection connection, @Nonnull String queue, boolean transacted) {
         this.connection = connection;
+        this.transacted = transacted;
 
         this.sessionSupplier = () -> {
             try {
                 return connection.createSession(transacted, Session.AUTO_ACKNOWLEDGE);
             } catch (JMSException e) {
                 log.error("Exception during session creation: ", e.getMessage());
-                throw new IllegalStateException(e);
+                throw new java.lang.IllegalStateException(e);
             }
         };
         this.sessionToConsumer = currentSession -> {
@@ -46,7 +50,7 @@ class JmsUnit implements AutoCloseable {
                 return currentSession.createConsumer(currentSession.createQueue(queue));
             } catch (JMSException e) {
                 log.error("Exception during consumer creation: ", e.getMessage());
-                throw new IllegalStateException(e);
+                throw new java.lang.IllegalStateException(e);
             }
         };
     }
@@ -87,7 +91,15 @@ class JmsUnit implements AutoCloseable {
 
     @SneakyThrows
     Message receive() {
-        return consumer().receive();
+        final Message message = consumer().receive();
+        if (transacted && session().getTransacted()) {
+            try {
+                session().commit();
+            } catch (IllegalStateException | TransactionInProgressException e) {
+                log.trace("Can't commit. Possible JTA transaction:", e);
+            }
+        }
+        return message;
     }
 
     @SneakyThrows

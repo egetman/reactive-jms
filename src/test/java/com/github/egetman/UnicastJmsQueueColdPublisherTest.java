@@ -10,6 +10,7 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
+import com.github.egetman.source.Source;
 import com.github.egetman.source.UnicastJmsQueueSource;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
@@ -31,7 +32,7 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
     private static final int MESSAGES_IN_QUEUE_SIZE = 10;
     private static final int DEFAULT_TIMEOUT_MILLIS = 300;
 
-    private static final String QUEUE_NAME = "queue";
+    private static final String QUEUE = "queue";
     private static final String BROKER_URL = "vm://localhost?broker.persistent=false";
     private static final Function<Message, String> MESSAGE_TO_STRING = message -> {
         try {
@@ -66,24 +67,25 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
         try (final Connection connection = factory.createConnection()) {
             connection.start();
             try (final Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
-                final Queue queue = session.createQueue(QUEUE_NAME);
+                final Queue queue = session.createQueue(QUEUE);
                 try (final MessageProducer producer = session.createProducer(queue)) {
                     // add 10 messages into queue for each test
                     IntStream.range(0, MESSAGES_IN_QUEUE_SIZE).forEach(element -> {
                         try {
                             producer.send(session.createTextMessage(valueOf(element)));
                         } catch (JMSException e) {
-                            log.error("Failed to send {} element into {}", element, QUEUE_NAME);
+                            log.error("Failed to send {} element into {}", element, QUEUE);
                         }
                     });
                 }
-                log.debug("{} mesages sent into {}", elements, QUEUE_NAME);
+                log.debug("{} mesages sent into {}", elements, QUEUE);
 
             }
         } catch (Exception e) {
             log.error("Exception on publisher creation", e);
         }
-        coldPublisher = new ColdPublisher<>(new UnicastJmsQueueSource<>(factory, MESSAGE_TO_STRING, QUEUE_NAME));
+        final Source<String> source = new UnicastJmsQueueSource<>(factory, MESSAGE_TO_STRING, QUEUE, "u1", null, true);
+        coldPublisher = new ColdPublisher<>(source);
         return coldPublisher;
     }
 
