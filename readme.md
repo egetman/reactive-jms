@@ -60,7 +60,7 @@ public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Functi
 }
     
 public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Function<Message, T> function,
-                             @Nonnull String queue, String user, String password, boolean transacted) {
+                             @Nonnull String queue, String user, String password, boolean transacted, int acknowledgeMode) {
     ...
 }
 ```
