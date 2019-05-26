@@ -1,5 +1,5 @@
 ![hex.pm](https://img.shields.io/hexpm/l/plug.svg)
-![version](https://img.shields.io/badge/version-0.7-blue.svg)
+![version](https://img.shields.io/badge/version-0.8-blue.svg)
 [![build status](https://travis-ci.org/egetman/reactive-jms.svg?branch=master)](https://travis-ci.org/egetman/reactive-jms)
 ![code coverage](https://codecov.io/gh/egetman/reactive-jms/branch/master/graph/badge.svg)
 # Reactive JMS Publisher (wrapper)
