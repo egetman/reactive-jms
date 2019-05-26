@@ -14,11 +14,14 @@ import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
+import javax.jms.Session;
 
 import com.github.egetman.etc.Pool;
 import com.github.egetman.etc.PoolFactory;
 
 import lombok.extern.slf4j.Slf4j;
+
+import static javax.jms.Session.AUTO_ACKNOWLEDGE;
 
 /**
  * Transacted passed inside the {@link JmsQuota} cause it could be changed for source later, but not for already
@@ -33,16 +36,27 @@ class JmsQuota<T> implements CloseableIterator<T> {
     private final int key;
     private final String queue;
     private final boolean transacted;
+    private final int acknowledgeMode;
 
     private final Pool<JmsUnit> units;
     private final Function<Message, T> function;
     private final Lock lock = new ReentrantLock();
 
+    @SuppressWarnings("unused")
     JmsQuota(int key,
              @Nonnull Function<Message, T> function,
              @Nonnull ConnectionFactory factory,
              @Nonnull String queue,
              String user, String password, boolean transacted) {
+        this(key, function, factory, queue, user, password, transacted, AUTO_ACKNOWLEDGE);
+    }
+
+    @SuppressWarnings("squid:S00107")
+    JmsQuota(int key,
+             @Nonnull Function<Message, T> function,
+             @Nonnull ConnectionFactory factory,
+             @Nonnull String queue,
+             String user, String password, boolean transacted, int acknowledgeMode) {
         try {
             // initialization should be sync'ed
             lock.lock();
@@ -50,8 +64,9 @@ class JmsQuota<T> implements CloseableIterator<T> {
             this.queue = Objects.requireNonNull(queue);
             this.function = Objects.requireNonNull(function);
             this.transacted = transacted;
+            this.acknowledgeMode = acknowledgeMode;
 
-            this.units = newPool(Objects.requireNonNull(factory), queue, user, password, transacted);
+            this.units = newPool(Objects.requireNonNull(factory), queue, user, password, transacted, acknowledgeMode);
         } finally {
             lock.unlock();
         }
@@ -60,7 +75,7 @@ class JmsQuota<T> implements CloseableIterator<T> {
     private Pool<JmsUnit> newPool(@Nonnull ConnectionFactory factory,
                                   @Nonnull String queue,
                                   String user,
-                                  String password, boolean transacted) {
+                                  String password, boolean transacted, int acknowledgeMode) {
 
         final Supplier<JmsUnit> supplier = () -> {
             final Connection connection;
@@ -71,9 +86,9 @@ class JmsQuota<T> implements CloseableIterator<T> {
                 } else {
                     connection = factory.createConnection();
                 }
-                return new JmsUnit(connection, queue, transacted);
+                return new JmsUnit(connection, queue, transacted, acknowledgeMode);
             } catch (JMSException e) {
-                log.error("Exception during pool connection initialization: ", e.getMessage());
+                log.error("Exception during pool connection initialization: {}", e.getMessage());
                 throw new IllegalStateException("Exception during pool connection initialization", e);
             }
         };
@@ -111,8 +126,10 @@ class JmsQuota<T> implements CloseableIterator<T> {
 
     @Nullable
     private T next(@Nonnull JmsUnit unit) {
+        Message message = null;
         try {
-            return function.apply(unit.receive());
+            message = unit.receive();
+            return function.apply(message);
         } catch (Exception ex) {
             log.error("Exception during message receiving for {}: {}", this, ex.getMessage());
             log.warn("Prepare to recover session {}", this);
@@ -122,13 +139,16 @@ class JmsQuota<T> implements CloseableIterator<T> {
                     wait(RETRY_TIME_SECONDS, TimeUnit.SECONDS);
                     return null;
                 }
-                return function.apply(unit.receive());
+                message = unit.receive();
+                return function.apply(message);
             } catch (Exception e) {
                 log.warn("Session recovery failed for {} with cause {}. Releasing unit", this, e.getMessage());
                 unit.fail();
                 wait(RETRY_TIME_SECONDS, TimeUnit.SECONDS);
                 return null;
             }
+        } finally {
+            acknowledge(message);
         }
     }
 
@@ -143,6 +163,16 @@ class JmsQuota<T> implements CloseableIterator<T> {
             return false;
         } finally {
             lock.unlock();
+        }
+    }
+
+    private void acknowledge(@Nullable Message message) {
+        if (message != null && Session.CLIENT_ACKNOWLEDGE == acknowledgeMode) {
+            try {
+                message.acknowledge();
+            } catch (JMSException e) {
+                log.error("Fail to acknowledge message {}: {}", message, e.getMessage());
+            }
         }
     }
 
@@ -187,7 +217,6 @@ class JmsQuota<T> implements CloseableIterator<T> {
     public void close() {
         try {
             // utilization should be sync'ed
-            //noinspection StatementWithEmptyBody
             lock.lock();
             units.shutdown();
         } finally {

@@ -7,6 +7,7 @@ import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.jms.ConnectionFactory;
 import javax.jms.Message;
+import javax.jms.Session;
 
 public class UnicastJmsQueueSource<T> implements Source<T> {
 
@@ -15,6 +16,7 @@ public class UnicastJmsQueueSource<T> implements Source<T> {
     private String password;
 
     private final String queue;
+    private final int acknowledgeMode;
     private final ConnectionFactory factory;
     private final Function<Message, T> function;
 
@@ -22,17 +24,21 @@ public class UnicastJmsQueueSource<T> implements Source<T> {
 
     public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Function<Message, T> function,
                                  @Nonnull String queue) {
-        this.queue = Objects.requireNonNull(queue, "Queue name ust not be null");
-        this.factory = Objects.requireNonNull(factory, "Factory must not be null");
-        this.function = Objects.requireNonNull(function, "Function must not be null");
+        this(factory, function, queue, null, null, false, Session.AUTO_ACKNOWLEDGE);
     }
 
     public UnicastJmsQueueSource(@Nonnull ConnectionFactory factory, @Nonnull Function<Message, T> function,
-                                 @Nonnull String queue, String user, String password, boolean transacted) {
-        this(factory, function, queue);
+                                 @Nonnull String queue, String user, String password, boolean transacted,
+                                 int acknowledgeMode) {
+        this.queue = Objects.requireNonNull(queue, "Queue name ust not be null");
+        this.factory = Objects.requireNonNull(factory, "Factory must not be null");
+        this.function = Objects.requireNonNull(function, "Function must not be null");
+
         this.user = user;
         this.password = password;
+
         this.tx = transacted;
+        this.acknowledgeMode = acknowledgeMode;
     }
 
     /**
@@ -44,7 +50,8 @@ public class UnicastJmsQueueSource<T> implements Source<T> {
     @Nonnull
     @Override
     public CloseableIterator<T> iterator(int key) {
-        return pool.computeIfAbsent(key, value -> new JmsQuota<>(key, function, factory, queue, user, password, tx));
+        return pool.computeIfAbsent(key,
+                value -> new JmsQuota<>(key, function, factory, queue, user, password, tx, acknowledgeMode));
     }
 
 }

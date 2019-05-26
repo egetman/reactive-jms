@@ -1,5 +1,7 @@
 package com.github.egetman.source;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -17,8 +19,15 @@ import javax.jms.TransactionInProgressException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import static java.util.Arrays.asList;
+import static javax.jms.Session.AUTO_ACKNOWLEDGE;
+import static javax.jms.Session.CLIENT_ACKNOWLEDGE;
+
 @Slf4j
 class JmsUnit implements AutoCloseable {
+
+    private static final Set<Integer> ALLOWED_ACKNOWLEDGE_MODES = new HashSet<>(asList(AUTO_ACKNOWLEDGE,
+            CLIENT_ACKNOWLEDGE));
 
     private final AtomicBoolean failed = new AtomicBoolean();
     private final Lock initializationLock = new ReentrantLock();
@@ -33,15 +42,18 @@ class JmsUnit implements AutoCloseable {
     private final Supplier<Session> sessionSupplier;
     private final Function<Session, MessageConsumer> sessionToConsumer;
 
-    JmsUnit(@Nonnull Connection connection, @Nonnull String queue, boolean transacted) {
+    JmsUnit(@Nonnull Connection connection, @Nonnull String queue, boolean transacted, int acknowledgeMode) {
         this.connection = connection;
         this.transacted = transacted;
+        if (!ALLOWED_ACKNOWLEDGE_MODES.contains(acknowledgeMode)) {
+            throw new IllegalArgumentException("Acknowledge mode " + acknowledgeMode + " not supported");
+        }
 
         this.sessionSupplier = () -> {
             try {
-                return connection.createSession(transacted, Session.AUTO_ACKNOWLEDGE);
+                return connection.createSession(transacted, acknowledgeMode);
             } catch (JMSException e) {
-                log.error("Exception during session creation: ", e.getMessage());
+                log.error("Exception during session creation: {}", e.getMessage());
                 throw new java.lang.IllegalStateException(e);
             }
         };
@@ -49,7 +61,7 @@ class JmsUnit implements AutoCloseable {
             try {
                 return currentSession.createConsumer(currentSession.createQueue(queue));
             } catch (JMSException e) {
-                log.error("Exception during consumer creation: ", e.getMessage());
+                log.error("Exception during consumer creation: {}", e.getMessage());
                 throw new java.lang.IllegalStateException(e);
             }
         };

@@ -27,7 +27,7 @@ import static java.lang.String.*;
  * TCK {@link Publisher} verification.
  */
 @Slf4j
-public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<String> {
+public abstract class UnicastJmsQueueColdPublisherTest extends PublisherVerification<String> {
 
     private static final int MESSAGES_IN_QUEUE_SIZE = 10;
     private static final int DEFAULT_TIMEOUT_MILLIS = 300;
@@ -43,6 +43,7 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
         }
     };
 
+    private final int acknowledgeMode;
     private ActiveMQConnectionFactory factory;
     private ColdPublisher<String> coldPublisher;
 
@@ -54,8 +55,9 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
         }
     }
 
-    public UnicastJmsQueueColdPublisherTest() {
+    UnicastJmsQueueColdPublisherTest(int acknowledgeMode) {
         super(new TestEnvironment(DEFAULT_TIMEOUT_MILLIS, DEFAULT_TIMEOUT_MILLIS, true));
+        this.acknowledgeMode = acknowledgeMode;
         // set prefetch to 1, so every consumer can receive some messages.
         factory = new ActiveMQConnectionFactory(BROKER_URL);
         factory.getPrefetchPolicy().setAll(1);
@@ -84,7 +86,8 @@ public class UnicastJmsQueueColdPublisherTest extends PublisherVerification<Stri
         } catch (Exception e) {
             log.error("Exception on publisher creation", e);
         }
-        final Source<String> source = new UnicastJmsQueueSource<>(factory, MESSAGE_TO_STRING, QUEUE, "u1", null, true);
+        final Source<String> source = new UnicastJmsQueueSource<>(factory, MESSAGE_TO_STRING, QUEUE, "u1", null, true,
+                acknowledgeMode);
         coldPublisher = new ColdPublisher<>(source);
         return coldPublisher;
     }
