@@ -15,7 +15,7 @@
         <lombok.version>1.16.16</lombok.version>
         <slf4j.version>1.7.25</slf4j.version>
         <jsr305.version>3.0.2</jsr305.version>
-        <logback.version>1.2.3</logback.version>
+        <logback.version>1.3.12</logback.version>
         <javax.jms-api.version>2.0.1</javax.jms-api.version>
         <reactive-streams.version>1.0.2</reactive-streams.version>
 
